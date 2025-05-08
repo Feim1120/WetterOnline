@@ -15,17 +15,17 @@ async function searchCities() {
       const data = await response.json();
   
       if (!data.results || data.results.length === 0) {
-        cityResults.innerHTML = "<li>Keine Städte gefunden</li>";
+        cityResults.innerHTML = "<li class='list-group-item'>Keine Städte gefunden</li>";
         return;
       }
   
       cityResults.innerHTML = data.results.map(city => `
-        <li onclick="selectCity(${city.latitude}, ${city.longitude}, '${city.timezone}', '${city.name}')">
+        <li class="list-group-item" onclick="selectCity(${city.latitude}, ${city.longitude}, '${city.timezone}', '${city.name}')">
           ${city.name}, ${city.country || ""}
         </li>
       `).join("");
     } catch (err) {
-      cityResults.innerHTML = `<li>Fehler: ${err.message}</li>`;
+      cityResults.innerHTML = `<li class="list-group-item">Fehler: ${err.message}</li>`;
       console.error("Geocoding-Fehler:", err);
     }
   }
@@ -43,7 +43,7 @@ async function searchCities() {
     const activityDiv = document.getElementById("activity");
   
     try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,weathercode&hourly=temperature_2m,weathercode,wind_gusts_10m,relativehumidity_2m,precipitation_probability&current_weather=true&timezone=${timezone}`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,weathercode&hourly=temperature_2m,weathercode,wind_gusts_10m,relativehumidity_2m,precipitation_probability&current_weather=true&timezone=${timezone}`;
       console.log("API-URL:", url); // Debugging
       const response = await fetch(url);
       if (!response.ok) throw new Error(`API-Fehler: Status ${response.status} - ${await response.text()}`);
@@ -73,7 +73,21 @@ async function searchCities() {
       };
   
       const info = weatherCodeToInfo(current.weathercode, current.is_day);
-      document.body.className = info.bgClass;
+  
+      // Dynamische Hintergrundfarbe anpassen
+      if (current.temperature > 25) {
+        document.body.style.background = "linear-gradient(to bottom, #2980B9, #1F618D)"; // Dunkleres Hellblau für heiß
+      } else if ([1, 2, 3].includes(current.weathercode)) {
+        document.body.style.background = "linear-gradient(to bottom, #7F8C8D, #5D6D7E)"; // Dunkleres Grau für bewölkt
+      } else if (info.bgClass === "rain") {
+        document.body.style.background = "linear-gradient(to bottom, #2E4057, #1A252F)"; // Dunkleres Blau-Grün für Regen
+      } else if (info.bgClass === "snow") {
+        document.body.style.background = "linear-gradient(to bottom, #A9B7B7, #839192)"; // Dunkleres Weiß-Grau für Schnee
+      } else if (info.bgClass === "fog") {
+        document.body.style.background = "linear-gradient(to bottom, #839192, #5D6D7E)"; // Dunkleres Grau für Nebel
+      } else {
+        document.body.style.background = "linear-gradient(to bottom, #2980B9, #1F618D)"; // Standard: Dunkles Blau
+      }
   
       const now = new Date();
       const currentHourIndex = hourly.time.findIndex(t => {
@@ -86,56 +100,62 @@ async function searchCities() {
       }
   
       weatherDiv.innerHTML = `
-        <div class="current-weather">
-          <h2>${cityName}</h2>
-          <p class="temperature">${Math.round(current.temperature)}°</p>
-          <p class="condition">${info.text}</p>
-          <p>H: ${Math.round(daily.temperature_2m_max[0])}° T: ${Math.round(daily.temperature_2m_min[0])}°</p>
-        </div>
-        <p class="weather-description">
-          ${info.text} den ganzen Tag. Windböen bis ${current.windgusts_10m || 'N/A'} km/h.
-        </p>
-        <div class="weather-details">
-          <p>Luftfeuchtigkeit: ${hourly.relativehumidity_2m[currentHourIndex] || 'N/A'}%</p>
-          <p>Niederschlag: ${hourly.precipitation_probability[currentHourIndex] || 'N/A'}%</p>
-        </div>
-        <h3>Stündlich</h3>
-        <div class="hourly-forecast">
-          ${hourly.time.slice(currentHourIndex, currentHourIndex + 6).map((t, i) => {
-            const w = weatherCodeToInfo(hourly.weathercode[currentHourIndex + i], current.is_day);
-            const hour = new Date(t).getHours();
-            return `
-              <div class="hour">
-                <p>${i === 0 ? "Jetzt" : `${hour} Uhr`}</p>
-                <img src="${w.icon}" alt="${w.text}">
-                <p>${Math.round(hourly.temperature_2m[currentHourIndex + i])}°</p>
-              </div>
-            `;
-          }).join("")}
-        </div>
-        <h3>10-Tage-Vorhersage</h3>
-        <div class="daily-forecast">
-          ${daily.time.slice(0, 4).map((t, i) => {
-            const d = new Date(t);
-            const w = weatherCodeToInfo(daily.weathercode[i], 1);
-            const days = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
-            const name = i === 0 ? "Heute" : days[d.getDay()];
-            return `
-              <div class="day">
-                <p>${name}</p>
-                <img src="${w.icon}" alt="${w.text}">
-                <p>${Math.round(daily.temperature_2m_min[i])}°</p>
-                <div class="temp-bar" style="width: ${(daily.temperature_2m_max[i] - daily.temperature_2m_min[i]) * 5}px;"></div>
-                <p>${Math.round(daily.temperature_2m_max[i])}°</p>
-              </div>
-            `;
-          }).join("")}
+        <div class="card-body">
+          <div class="current-weather text-center">
+            <h2 class="card-title">${cityName}</h2>
+            <p class="temperature">${Math.round(current.temperature)}°</p>
+            <p class="condition">${info.text}</p>
+            <p>H: ${Math.round(daily.temperature_2m_max[0])}° T: ${Math.round(daily.temperature_2m_min[0])}°</p>
+          </div>
+          <p class="weather-description text-center">
+            ${info.text} den ganzen Tag. Windböen bis ${current.windgusts_10m || 'N/A'} km/h.
+          </p>
+          <div class="weather-details">
+            <p>Luftfeuchtigkeit: ${hourly.relativehumidity_2m[currentHourIndex] || 'N/A'}%</p>
+            <p>Niederschlag: ${hourly.precipitation_probability[currentHourIndex] || 'N/A'}%</p>
+          </div>
+          <h3>Stündlich</h3>
+          <div class="hourly-forecast">
+            ${hourly.time.slice(currentHourIndex, currentHourIndex + 6).map((t, i) => {
+              const w = weatherCodeToInfo(hourly.weathercode[currentHourIndex + i], current.is_day);
+              const hour = new Date(t).getHours();
+              return `
+                <div class="hour">
+                  <p>${i === 0 ? "Jetzt" : `${hour} Uhr`}</p>
+                  <img src="${w.icon}" alt="${w.text}">
+                  <p>${Math.round(hourly.temperature_2m[currentHourIndex + i])}°</p>
+                </div>
+              `;
+            }).join("")}
+          </div>
+          <h3>Wochenvorhersage</h3>
+          <div class="daily-forecast">
+            ${daily.time.slice(0, 4).map((t, i) => {
+              const d = new Date(t);
+              const w = weatherCodeToInfo(daily.weathercode[i], 1);
+              const days = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+              const name = i === 0 ? "Heute" : days[d.getDay()];
+              return `
+                <div class="day">
+                  <p>${name}</p>
+                  <img src="${w.icon}" alt="${w.text}">
+                  <p>${Math.round(daily.temperature_2m_min[i])}°</p>
+                  <div class="temp-bar" style="width: ${(daily.temperature_2m_max[i] - daily.temperature_2m_min[i]) * 5}px;"></div>
+                  <p>${Math.round(daily.temperature_2m_max[i])}°</p>
+                </div>
+              `;
+            }).join("")}
+          </div>
         </div>
       `;
   
-      activityDiv.innerHTML = `<p>Vorschlag: ${suggestActivity(info.text)}</p>`;
+      activityDiv.innerHTML = `
+        <div class="card-body">
+          <p class="card-text text-center">Vorschlag: ${suggestActivity(info.text)}</p>
+        </div>
+      `;
     } catch (err) {
-      weatherDiv.innerHTML = `<p>Fehler: ${err.message}</p>`;
+      weatherDiv.innerHTML = `<div class="card-body"><p class="card-text text-center">Fehler: ${err.message}</p></div>`;
       console.error("Wetterfehler:", err);
     }
   }
